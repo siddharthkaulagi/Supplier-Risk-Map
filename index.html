@@ -1,0 +1,932 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f6f8">
+  <title>RiskLens — Supplier Concentration Risk Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #14253d;
+      --navy: #10253f;
+      --muted: #67778b;
+      --line: #e3e8ee;
+      --surface: #ffffff;
+      --canvas: #f4f6f8;
+      --red: #c43d45;
+      --red-pale: #fff0f0;
+      --amber: #b77713;
+      --amber-pale: #fff6e6;
+      --green: #21835d;
+      --green-pale: #e9f6ef;
+      --blue: #3b6fa9;
+      --shadow: 0 3px 12px rgba(19, 39, 62, .045);
+      font-family: "Inter", sans-serif;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--canvas); color: var(--ink); font-size: 14px; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .app-shell { max-width: 1512px; margin: 0 auto; padding: 0 34px 44px; }
+    .topbar {
+      min-height: 72px; display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--line); margin-bottom: 28px;
+    }
+    .brand { display: flex; gap: 11px; align-items: center; color: var(--navy); font-weight: 800; letter-spacing: -.04em; font-size: 18px; }
+    .brand-mark {
+      width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+      color: white; background: var(--navy);
+    }
+    .brand-mark svg { width: 20px; height: 20px; }
+    .topbar-note { color: var(--muted); font-size: 12px; }
+    .page-heading { display: flex; justify-content: space-between; align-items: end; gap: 22px; margin-bottom: 22px; }
+    .eyebrow { color: var(--blue); font-size: 10px; text-transform: uppercase; letter-spacing: .12em; font-weight: 800; margin-bottom: 8px; }
+    h1 { margin: 0; color: var(--navy); font-size: clamp(25px, 3vw, 34px); letter-spacing: -.055em; line-height: 1.15; }
+    .subtitle { color: var(--muted); margin: 9px 0 0; font-size: 13px; line-height: 1.6; max-width: 720px; }
+    .heading-actions { display: flex; gap: 9px; flex-shrink: 0; }
+    .button {
+      border: 1px solid var(--line); border-radius: 8px; padding: 9px 13px; background: white;
+      color: var(--navy); font-size: 12px; font-weight: 700; display: inline-flex; align-items: center;
+      gap: 7px; transition: background .15s, border-color .15s, transform .15s;
+    }
+    .button:hover { background: #f8fafc; border-color: #bbc7d3; }
+    .button:active { transform: translateY(1px); }
+    .button.primary { background: var(--navy); border-color: var(--navy); color: white; }
+    .button.primary:hover { background: #193756; }
+    .button.danger-quiet { color: #a33b40; }
+    .button svg { width: 15px; height: 15px; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1.56fr) minmax(310px, .84fr); gap: 18px; align-items: start; }
+    .main-column, .side-column { display: grid; gap: 18px; min-width: 0; }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); min-width: 0; }
+    .card-header { padding: 17px 19px 13px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .card-title { color: var(--navy); font-size: 13px; font-weight: 800; margin: 0; letter-spacing: -.015em; }
+    .card-description { color: var(--muted); font-size: 11px; margin: 5px 0 0; line-height: 1.55; }
+    .card-body { padding: 0 19px 18px; }
+    .chip {
+      border-radius: 99px; padding: 5px 9px; color: #52667c; background: #f1f4f7;
+      font-weight: 700; font-size: 10px; white-space: nowrap;
+    }
+    .supplier-toolbar { display: flex; align-items: center; gap: 8px; }
+    .supplier-list { display: grid; gap: 8px; }
+    .supplier-row {
+      display: grid; grid-template-columns: minmax(120px, 1.35fr) minmax(105px, 1fr) 83px
+        minmax(92px, .9fr) minmax(92px, .9fr) minmax(105px, 1fr) 84px 32px;
+      gap: 9px; align-items: end; border: 1px solid #e7ebf0; border-radius: 9px;
+      padding: 10px; background: #fff;
+    }
+    .field { min-width: 0; }
+    .field label, .form-label {
+      display: block; color: #718094; font-size: 9px; text-transform: uppercase;
+      letter-spacing: .065em; font-weight: 800; margin: 0 0 6px 1px;
+    }
+    .field input, .field select, .scenario-input {
+      min-width: 0; width: 100%; height: 34px; border: 1px solid #dfe5eb; border-radius: 6px;
+      color: #243750; background: white; padding: 0 8px; outline: none; font-size: 11px;
+    }
+    .field input:focus, .field select:focus, .scenario-input:focus, button:focus-visible {
+      border-color: #7798bc; box-shadow: 0 0 0 3px rgba(74, 122, 173, .13); outline: none;
+    }
+    .field input[aria-invalid="true"] { border-color: var(--red); background: #fffafb; }
+    .field input[type="number"] { font-variant-numeric: tabular-nums; }
+    .remove-row {
+      width: 30px; height: 34px; border: 1px solid transparent; border-radius: 6px; color: #9aa6b4;
+      background: transparent; display: grid; place-items: center;
+    }
+    .remove-row:hover { color: var(--red); background: var(--red-pale); }
+    .remove-row svg { width: 16px; height: 16px; }
+    .validation-line { min-height: 18px; color: var(--muted); display: flex; justify-content: space-between; gap: 10px; font-size: 10px; margin-top: 10px; }
+    .validation-line .error { color: var(--red); font-weight: 700; }
+    .validation-line .valid { color: var(--green); font-weight: 700; }
+    .score-guide { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+    .score-note { font-size: 9px; color: #718094; border-left: 2px solid #dae2ea; padding-left: 7px; line-height: 1.5; }
+    .score-note strong { color: #52667c; }
+    .metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .metric {
+      padding: 14px; border: 1px solid var(--line); border-radius: 9px; min-height: 96px;
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .metric-label { color: var(--muted); font-size: 10px; font-weight: 700; }
+    .metric-value { font-size: 23px; line-height: 1; color: var(--navy); font-weight: 800; letter-spacing: -.055em; }
+    .metric-help { font-size: 9px; color: #8996a4; margin-top: 6px; }
+    .risk-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 99px; padding: 5px 9px; font-size: 10px; font-weight: 800; }
+    .risk-pill::before { content: ""; width: 6px; height: 6px; border-radius: 100%; background: currentColor; }
+    .risk-low { background: var(--green-pale); color: var(--green); }
+    .risk-moderate { background: var(--amber-pale); color: var(--amber); }
+    .risk-high { background: var(--red-pale); color: var(--red); }
+    .risk-unknown { background: #f1f4f7; color: #718094; }
+    .charts-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(210px, .85fr); gap: 12px; }
+    .chart-panel { min-width: 0; border: 1px solid #edf0f3; border-radius: 9px; padding: 12px; }
+    .chart-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .chart-heading h3 { font-size: 10px; margin: 0; color: var(--navy); font-weight: 800; }
+    .chart-caption { font-size: 9px; color: #8a97a5; }
+    .bubble-wrap { height: 255px; }
+    .donut-wrap { height: 190px; }
+    .donut-legend { display: grid; gap: 6px; margin-top: 6px; }
+    .legend-row { display: flex; justify-content: space-between; gap: 8px; color: #63758a; font-size: 9px; }
+    .legend-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .legend-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+    .top-risk-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 9px; }
+    .top-risk-item { display: grid; grid-template-columns: 23px minmax(0, 1fr) auto; gap: 9px; align-items: start; }
+    .rank { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; background: #f1f4f7; color: #596d82; font-size: 10px; font-weight: 800; }
+    .top-risk-name { color: var(--navy); font-weight: 800; font-size: 11px; line-height: 1.4; }
+    .top-risk-rec { color: var(--muted); font-size: 9px; line-height: 1.45; margin-top: 3px; }
+    .top-risk-score { color: var(--red); font-size: 11px; font-weight: 800; white-space: nowrap; }
+    .empty-state { color: #8794a3; font-size: 11px; text-align: center; padding: 20px 8px; }
+    .scenario-card { border-color: #dce4ec; }
+    .scenario-banner { height: 4px; border-radius: 12px 12px 0 0; background: linear-gradient(90deg, #c43d45, #e1a33a); }
+    .scenario-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
+    .scenario-input { height: 38px; font-size: 12px; }
+    .duration-control { grid-column: 1 / -1; }
+    .duration-tabs { display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px; border-radius: 8px; background: #f0f3f6; gap: 3px; }
+    .duration-tab { border: 0; background: transparent; color: #758399; border-radius: 6px; padding: 8px 7px; font-size: 10px; font-weight: 800; }
+    .duration-tab[aria-pressed="true"] { color: var(--navy); background: #fff; box-shadow: 0 1px 4px rgba(17, 37, 62, .12); }
+    .scenario-placeholder { border: 1px dashed #d8e0e8; border-radius: 8px; color: #8491a0; line-height: 1.6; font-size: 10px; padding: 14px; text-align: center; margin-top: 13px; }
+    .scenario-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 13px; }
+    .scenario-result { border-radius: 8px; background: #f6f8fa; padding: 10px; min-height: 62px; }
+    .scenario-result-label { font-size: 9px; color: #77879a; font-weight: 700; }
+    .scenario-result-value { color: var(--navy); font-size: 15px; font-weight: 800; margin-top: 5px; letter-spacing: -.025em; }
+    .scenario-rating { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--line); padding-top: 11px; }
+    .scenario-rating-label { color: #65768a; font-weight: 700; font-size: 10px; }
+    .methodology { color: #738296; font-size: 9px; line-height: 1.55; margin-top: 12px; }
+    .country-note { color: #718094; font-size: 9px; line-height: 1.5; margin-top: 9px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    @media (max-width: 1150px) {
+      .app-shell { padding-left: 22px; padding-right: 22px; }
+      .layout { grid-template-columns: minmax(0, 1.35fr) minmax(295px, .85fr); }
+      .supplier-row { grid-template-columns: minmax(115px, 1.2fr) minmax(100px, 1fr) 74px minmax(88px, .9fr) minmax(80px, .85fr) minmax(98px, 1fr) 75px 28px; gap: 6px; padding: 8px; }
+      .field input, .field select { font-size: 10px; padding: 0 6px; }
+    }
+    @media (max-width: 940px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-column { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+      .supplier-row { grid-template-columns: 1.25fr 1fr 80px 1fr 1fr 1fr 80px 30px; }
+    }
+    @media (max-width: 700px) {
+      .app-shell { padding: 0 13px 28px; }
+      .topbar { min-height: 58px; margin-bottom: 21px; }
+      .topbar-note { display: none; }
+      .page-heading { display: block; }
+      .heading-actions { margin-top: 15px; flex-wrap: wrap; }
+      .heading-actions .button { flex: 1; justify-content: center; }
+      .side-column { grid-template-columns: 1fr; }
+      .metric-grid { grid-template-columns: 1fr 1fr; }
+      .metric:last-child { grid-column: 1 / -1; }
+      .charts-grid { grid-template-columns: 1fr; }
+      .supplier-toolbar { align-items: flex-start; flex-direction: column; }
+      .supplier-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; padding: 11px; position: relative; }
+      .supplier-row .field:first-child { grid-column: 1 / -1; padding-right: 34px; }
+      .supplier-row .remove-row { position: absolute; right: 9px; top: 20px; }
+      .field label { font-size: 9px; }
+      .field input, .field select { height: 36px; font-size: 11px; }
+      .card-header { padding: 15px 14px 12px; }
+      .card-body { padding: 0 14px 15px; }
+      .scenario-controls { grid-template-columns: 1fr; }
+      .duration-control { grid-column: auto; }
+    }
+    @media print {
+      :root { --canvas: #fff; --shadow: none; }
+      body { background: white; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .app-shell { max-width: none; padding: 0; }
+      .topbar { margin-bottom: 16px; }
+      .heading-actions, .supplier-toolbar button, .remove-row { display: none !important; }
+      .layout { grid-template-columns: 1.5fr .9fr; gap: 10px; }
+      .card { break-inside: avoid; box-shadow: none; }
+      .main-column, .side-column { gap: 10px; }
+      .supplier-row { grid-template-columns: 1.2fr 1fr 65px .9fr .8fr .9fr 65px; }
+      .bubble-wrap { height: 190px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 18V9m5 9V5m5 13v-6m5 6V7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M2.8 20.2h18.4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </span>
+        RiskLens
+      </div>
+      <div class="topbar-note">Supplier concentration risk simulator <span aria-hidden="true">·</span> All inputs stay in this browser session</div>
+    </header>
+
+    <main>
+      <section class="page-heading" aria-labelledby="page-title">
+        <div>
+          <div class="eyebrow">Supply chain intelligence</div>
+          <h1 id="page-title">Supplier Concentration Risk Simulator</h1>
+          <p class="subtitle">See where spend, geography, and recovery constraints create exposure. Adjust your supplier mix, then model the impact of a disruption.</p>
+        </div>
+        <div class="heading-actions">
+          <button class="button" id="export-button" type="button" title="Download supplier data as CSV">
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 2.5v9m0 0 3.2-3.2M10 11.5 6.8 8.3M3.5 13v3.5h13V13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Export CSV
+          </button>
+          <button class="button" id="print-button" type="button">
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5.5 6V3h9v3m-9 8H4a1 1 0 0 1-1-1V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v5a1 1 0 0 1-1 1h-1.5m-9 0v3h9v-3h-9Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Print view
+          </button>
+          <button class="button danger-quiet" id="reset-button" type="button" title="Restore the starter portfolio and clear scenario inputs">
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3.5 10a6.5 6.5 0 1 0 2-4.7L3.5 7.5m0-4v4h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Reset
+          </button>
+        </div>
+      </section>
+
+      <div class="layout">
+        <div class="main-column">
+          <section class="card" aria-labelledby="supplier-title">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title" id="supplier-title">Supplier portfolio</h2>
+                <p class="card-description">Enter your supplier mix. Spend allocations must add up to exactly 100%.</p>
+              </div>
+              <span class="chip" id="supplier-count">4 / 12 suppliers</span>
+            </div>
+            <div class="card-body">
+              <div class="supplier-toolbar">
+                <button class="button primary" id="add-supplier" type="button">
+                  <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                  Add supplier
+                </button>
+                <span class="card-description">Production lines indicate how many lines depend on each supplier.</span>
+              </div>
+              <div id="supplier-list" class="supplier-list" aria-live="polite"></div>
+              <div class="validation-line" aria-live="polite">
+                <span id="validation-message"></span>
+                <span id="spend-total"></span>
+              </div>
+              <div class="score-guide" aria-label="Risk score factors">
+                <span class="score-note"><strong>Spend:</strong> &gt;30% = 40, 15–30% = 25, &lt;15% = 10</span>
+                <span class="score-note"><strong>Country:</strong> China = 20, India = 5, other = 0</span>
+                <span class="score-note"><strong>Alternatives:</strong> 0 = 25, 1 = 15, 2+ = 5</span>
+                <span class="score-note"><strong>Lead time:</strong> 12+ = 15, 8 = 10, 4 = 5, 2 = 0</span>
+                <span class="score-note"><strong>Dependency:</strong> single-country portfolio adds 15 to each supplier, then scores cap at 100.</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="portfolio-title">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title" id="portfolio-title">Portfolio overview</h2>
+                <p class="card-description">Spend-weighted supplier risk and exposure distribution.</p>
+              </div>
+              <span class="risk-pill risk-unknown" id="portfolio-risk">Awaiting valid mix</span>
+            </div>
+            <div class="card-body">
+              <div class="metric-grid">
+                <div class="metric">
+                  <div class="metric-label">Portfolio risk score</div>
+                  <div class="metric-value" id="portfolio-score">—</div>
+                  <div class="metric-help">Spend-weighted average · 0–100</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Suppliers represented</div>
+                  <div class="metric-value" id="portfolio-suppliers">4</div>
+                  <div class="metric-help">Maximum of 12</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Countries sourced</div>
+                  <div class="metric-value" id="portfolio-countries">—</div>
+                  <div class="metric-help" id="country-summary">Distinct supplier countries</div>
+                </div>
+              </div>
+              <div class="charts-grid" style="margin-top:12px">
+                <div class="chart-panel">
+                  <div class="chart-heading">
+                    <h3>Supplier risk map</h3>
+                    <span class="chart-caption">Bubble size = recovery lead time</span>
+                  </div>
+                  <div class="bubble-wrap"><canvas id="risk-map" role="img" aria-label="Bubble chart comparing supplier spend and risk score"></canvas></div>
+                </div>
+                <div class="chart-panel">
+                  <div class="chart-heading"><h3>Risk profile by spend</h3><span class="chart-caption">Risk band</span></div>
+                  <div class="donut-wrap"><canvas id="risk-donut" role="img" aria-label="Doughnut chart of spend by supplier risk category"></canvas></div>
+                  <div class="donut-legend" id="risk-legend"></div>
+                </div>
+              </div>
+              <div class="charts-grid" style="margin-top:12px">
+                <div class="chart-panel">
+                  <div class="chart-heading"><h3>Spend by country</h3><span class="chart-caption">Portfolio allocation</span></div>
+                  <div class="donut-wrap"><canvas id="country-donut" role="img" aria-label="Doughnut chart of spend by sourcing country"></canvas></div>
+                  <div class="donut-legend" id="country-legend"></div>
+                  <p class="country-note">Geography risk and dependency are separate: a supplier is scored for its own country exposure, while a portfolio sourced from just one country gets an additional dependency surcharge.</p>
+                </div>
+                <div class="chart-panel">
+                  <div class="chart-heading"><h3>Priority actions</h3><span class="chart-caption">Highest supplier scores</span></div>
+                  <ol class="top-risk-list" id="top-risk-list"></ol>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <aside class="side-column" aria-label="Disruption scenario and scoring guidance">
+          <section class="card scenario-card" aria-labelledby="scenario-title">
+            <div class="scenario-banner" aria-hidden="true"></div>
+            <div class="card-header">
+              <div>
+                <h2 class="card-title" id="scenario-title">Failure scenario</h2>
+                <p class="card-description">Estimate operational and financial exposure if a supplier is disrupted.</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="scenario-controls">
+                <div>
+                  <label class="form-label" for="scenario-supplier">Disrupted supplier</label>
+                  <select class="scenario-input" id="scenario-supplier" aria-label="Select supplier to disrupt"></select>
+                </div>
+                <div>
+                  <label class="form-label" for="monthly-revenue">Monthly revenue (USD)</label>
+                  <input class="scenario-input" id="monthly-revenue" type="number" min="0" step="1000" inputmode="decimal" placeholder="Enter amount">
+                </div>
+                <div class="duration-control">
+                  <span class="form-label">Disruption duration</span>
+                  <div class="duration-tabs" role="group" aria-label="Disruption duration">
+                    <button class="duration-tab" type="button" data-weeks="2" aria-pressed="true">2 weeks</button>
+                    <button class="duration-tab" type="button" data-weeks="4" aria-pressed="false">4 weeks</button>
+                    <button class="duration-tab" type="button" data-weeks="8" aria-pressed="false">8 weeks</button>
+                  </div>
+                </div>
+              </div>
+              <div id="scenario-placeholder" class="scenario-placeholder">Choose a supplier and enter monthly revenue to calculate scenario exposure.</div>
+              <div id="scenario-results" class="scenario-results" hidden>
+                <div class="scenario-result">
+                  <div class="scenario-result-label">Revenue at risk</div>
+                  <div class="scenario-result-value" id="revenue-at-risk">—</div>
+                </div>
+                <div class="scenario-result">
+                  <div class="scenario-result-label">Production lines affected</div>
+                  <div class="scenario-result-value" id="lines-affected">—</div>
+                </div>
+                <div class="scenario-result">
+                  <div class="scenario-result-label">Estimated recovery cost</div>
+                  <div class="scenario-result-value" id="recovery-cost">—</div>
+                </div>
+                <div class="scenario-result">
+                  <div class="scenario-result-label">Supplier risk score</div>
+                  <div class="scenario-result-value" id="scenario-score">—</div>
+                </div>
+                <div class="scenario-result">
+                  <div class="scenario-result-label">Onboarding gap</div>
+                  <div class="scenario-result-value" id="onboarding-gap">—</div>
+                </div>
+                <div class="scenario-rating">
+                  <span class="scenario-rating-label">Scenario severity</span>
+                  <span class="risk-pill risk-unknown" id="scenario-rating">—</span>
+                </div>
+              </div>
+              <p class="methodology">Revenue at risk = monthly revenue × supplier spend share × disruption weeks ÷ 4. Recovery cost = spend share × monthly revenue × disruption weeks × 1.3. Revenue and cost are rounded for readability.</p>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="method-title">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title" id="method-title">How the score works</h2>
+                <p class="card-description">A transparent, rule-based 0–100 exposure score.</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <p class="card-description" style="margin-top:0">Each supplier receives points for spend concentration, country exposure, alternative availability, and onboarding lead time. If all suppliers are in one country, each supplier gets an extra dependency surcharge.</p>
+              <div class="score-guide" style="margin-top:12px">
+                <span class="risk-pill risk-low">Low · 0–30</span>
+                <span class="risk-pill risk-moderate">Moderate · 31–60</span>
+                <span class="risk-pill risk-high">High · 61–100</span>
+              </div>
+              <p class="methodology">A portfolio score is the spend-weighted mean of supplier scores. Risk bands for the charts and supplier list use each individual supplier's score. Scenario severity adds duration and onboarding-gap pressure to the score.</p>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    "use strict";
+
+    const STARTER_SUPPLIERS = [
+      { name: "Aster Metals", category: "Raw Material", spend: 35, country: "India", alternatives: "1", leadWeeks: "8", lines: 3 },
+      { name: "Northstar Components", category: "Component", spend: 30, country: "China", alternatives: "0", leadWeeks: "12+", lines: 2 },
+      { name: "ClearPack Industries", category: "Packaging", spend: 20, country: "India", alternatives: "2+", leadWeeks: "4", lines: 1 },
+      { name: "CedarPoint Services", category: "Services", spend: 15, country: "USA", alternatives: "2+", leadWeeks: "2", lines: 1 }
+    ];
+    const CATEGORIES = ["Raw Material", "Component", "Packaging", "Services"];
+    const COUNTRIES = ["India", "China", "USA", "Europe", "Other"];
+    const CATEGORY_COLORS = {
+      "Raw Material": "#476e9c",
+      "Component": "#c43d45",
+      "Packaging": "#b77713",
+      "Services": "#21835d"
+    };
+    const COUNTRY_COLORS = ["#476e9c", "#c43d45", "#21835d", "#b77713", "#77879a"];
+    const supplierList = document.getElementById("supplier-list");
+    const scenarioSupplier = document.getElementById("scenario-supplier");
+    const monthlyRevenue = document.getElementById("monthly-revenue");
+    let suppliers = STARTER_SUPPLIERS.map((supplier) => ({ ...supplier, id: createId() }));
+    let selectedWeeks = 2;
+    let charts = {};
+
+    function createId() {
+      return "supplier-" + Math.random().toString(36).slice(2, 10);
+    }
+
+    function createField(label, control, value, options) {
+      const field = document.createElement("div");
+      field.className = "field";
+      const id = createId();
+      const labelElement = document.createElement("label");
+      labelElement.htmlFor = id;
+      labelElement.textContent = label;
+      let input;
+      if (control === "select") {
+        input = document.createElement("select");
+        options.forEach((option) => {
+          const item = document.createElement("option");
+          item.value = option;
+          item.textContent = option;
+          input.append(item);
+        });
+      } else {
+        input = document.createElement("input");
+        input.type = control;
+        if (control === "number") {
+          input.min = "0";
+          input.step = "any";
+          input.inputMode = "decimal";
+        }
+      }
+      input.id = id;
+      input.value = value;
+      input.dataset.field = label === "Spend %" ? "spend" :
+        label === "Production lines" ? "lines" :
+        label === "Lead time" ? "leadWeeks" :
+        label === "Alternatives" ? "alternatives" :
+        label === "Country" ? "country" :
+        label === "Category" ? "category" : "name";
+      if (label === "Supplier name") input.maxLength = 80;
+      if (label === "Spend %") {
+        input.min = "0";
+        input.max = "100";
+        input.step = "0.1";
+        input.setAttribute("aria-label", "Spend percentage");
+      }
+      if (label === "Production lines") {
+        input.min = "0";
+        input.max = "999";
+        input.step = "1";
+        input.setAttribute("aria-label", "Production lines dependent on supplier");
+      }
+      field.append(labelElement, input);
+      return field;
+    }
+
+    function makeSupplierRow(supplier) {
+      const row = document.createElement("div");
+      row.className = "supplier-row";
+      row.dataset.supplierId = supplier.id;
+      row.append(
+        createField("Supplier name", "text", supplier.name),
+        createField("Category", "select", supplier.category, CATEGORIES),
+        createField("Spend %", "number", supplier.spend),
+        createField("Country", "select", supplier.country, COUNTRIES),
+        createField("Alternatives", "select", supplier.alternatives, ["0", "1", "2+"]),
+        createField("Lead time", "select", supplier.leadWeeks, ["2", "4", "8", "12+"])
+      );
+      const linesField = createField("Production lines", "number", supplier.lines);
+      row.append(linesField);
+      const remove = document.createElement("button");
+      remove.className = "remove-row";
+      remove.type = "button";
+      remove.setAttribute("aria-label", "Remove " + supplier.name);
+      remove.title = "Remove supplier";
+      remove.innerHTML = '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.5 6h11m-9.5 0 .6 10h7.8L15 6M8 6V4h4v2m-3 3v4m2-4v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      remove.addEventListener("click", () => {
+        suppliers = suppliers.filter((item) => item.id !== supplier.id);
+        renderAll();
+      });
+      row.append(remove);
+      return row;
+    }
+
+    function readSuppliersFromInputs() {
+      supplierList.querySelectorAll(".supplier-row").forEach((row) => {
+        const supplier = suppliers.find((item) => item.id === row.dataset.supplierId);
+        if (!supplier) return;
+        row.querySelectorAll("[data-field]").forEach((input) => {
+          const key = input.dataset.field;
+          supplier[key] = input.value;
+        });
+      });
+      return suppliers.map((supplier) => ({
+        ...supplier,
+        spend: supplier.spend === "" ? Number.NaN : Number(supplier.spend),
+        lines: supplier.lines === "" ? Number.NaN : Number(supplier.lines),
+        leadWeeks: supplier.leadWeeks === "12+" ? 12 : Number(supplier.leadWeeks),
+        leadLabel: supplier.leadWeeks === "12+" ? "12+ weeks" : supplier.leadWeeks + " weeks"
+      }));
+    }
+
+    function getPortfolioCountryCount(items) {
+      return new Set(items.filter((item) => item.country && item.spend > 0).map((item) => item.country)).size;
+    }
+
+    function scoreSupplier(supplier, singleCountry) {
+      const spendPoints = Number.isFinite(supplier.spend)
+        ? supplier.spend > 30 ? 40 : supplier.spend >= 15 ? 25 : 10
+        : 0;
+      const countryPoints = supplier.country === "China" ? 20 : supplier.country === "India" ? 5 : 0;
+      const alternativePoints = supplier.alternatives === "0" ? 25 : supplier.alternatives === "1" ? 15 : 5;
+      const leadPoints = supplier.leadWeeks >= 12 ? 15 : supplier.leadWeeks >= 8 ? 10 : supplier.leadWeeks >= 4 ? 5 : 0;
+      const dependencyPoints = singleCountry ? 15 : 0;
+      const score = Math.min(100, spendPoints + countryPoints + alternativePoints + leadPoints + dependencyPoints);
+      const factors = [
+        { name: "Spend concentration", points: spendPoints },
+        { name: "Supplier country", points: countryPoints },
+        { name: "Limited alternatives", points: alternativePoints },
+        { name: "Onboarding lead time", points: leadPoints },
+        { name: "Single-country dependency", points: dependencyPoints }
+      ].filter((factor) => factor.points > 0).sort((a, b) => b.points - a.points);
+      return { ...supplier, score, factors, topFactor: factors[0]?.name || "No dominant factor" };
+    }
+
+    function riskBand(score) {
+      return score <= 30 ? "Low" : score <= 60 ? "Moderate" : "High";
+    }
+
+    function getPortfolioState() {
+      const items = readSuppliersFromInputs();
+      const totalSpend = items.reduce((sum, supplier) => sum + (Number.isFinite(supplier.spend) ? supplier.spend : 0), 0);
+      const countryCount = getPortfolioCountryCount(items);
+      const singleCountry = items.length > 0 && countryCount === 1;
+      const scored = items.map((supplier) => scoreSupplier(supplier, singleCountry));
+      const validSpend = Math.abs(totalSpend - 100) < 1e-8;
+      const weightedScore = validSpend
+        ? scored.reduce((sum, supplier) => sum + supplier.score * supplier.spend, 0) / 100
+        : null;
+      return { items: scored, totalSpend, countryCount, singleCountry, validSpend, weightedScore };
+    }
+
+    function updateSpendValidation(state) {
+      const message = document.getElementById("validation-message");
+      const total = document.getElementById("spend-total");
+      const invalidRows = new Set();
+      supplierList.querySelectorAll(".supplier-row").forEach((row) => {
+        const spendInput = row.querySelector('[data-field="spend"]');
+        const value = Number(spendInput.value);
+        const invalid = spendInput.value === "" || !Number.isFinite(value) || value < 0 || value > 100;
+        spendInput.setAttribute("aria-invalid", String(invalid));
+        if (invalid) invalidRows.add(row.dataset.supplierId);
+      });
+      if (invalidRows.size > 0) {
+        message.className = "error";
+        message.textContent = "Enter a valid spend percentage between 0 and 100 for every supplier.";
+      } else if (state.validSpend) {
+        message.className = "valid";
+        message.textContent = "Spend allocation is valid.";
+      } else {
+        message.className = "error";
+        message.textContent = "Spend must total exactly 100%.";
+      }
+      total.textContent = "Allocated: " + formatNumber(state.totalSpend, 1) + "%";
+    }
+
+    function refreshScenarioOptions(items) {
+      const oldValue = scenarioSupplier.value;
+      scenarioSupplier.replaceChildren();
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = items.length ? "Select a supplier" : "Add a supplier first";
+      scenarioSupplier.append(placeholder);
+      items.forEach((supplier) => {
+        const option = document.createElement("option");
+        option.value = supplier.id;
+        option.textContent = supplier.name.trim() || "Unnamed supplier";
+        scenarioSupplier.append(option);
+      });
+      if (items.some((item) => item.id === oldValue)) scenarioSupplier.value = oldValue;
+    }
+
+    function renderSummary(state) {
+      document.getElementById("portfolio-suppliers").textContent = String(state.items.length);
+      document.getElementById("supplier-count").textContent = state.items.length + " / 12 suppliers";
+      document.getElementById("portfolio-countries").textContent = state.countryCount ? String(state.countryCount) : "—";
+      const portfolioScore = document.getElementById("portfolio-score");
+      const portfolioRisk = document.getElementById("portfolio-risk");
+      if (state.validSpend && state.weightedScore !== null) {
+        portfolioScore.textContent = state.weightedScore.toFixed(1);
+        const band = riskBand(state.weightedScore);
+        portfolioRisk.className = "risk-pill " + riskClass(band);
+        portfolioRisk.textContent = band + " portfolio";
+      } else {
+        portfolioScore.textContent = "—";
+        portfolioRisk.className = "risk-pill risk-unknown";
+        portfolioRisk.textContent = "Awaiting valid mix";
+      }
+      document.getElementById("country-summary").textContent = state.singleCountry
+        ? "Single-country dependency surcharge applies"
+        : "Distinct supplier countries";
+    }
+
+    function riskClass(band) {
+      return band === "Low" ? "risk-low" : band === "Moderate" ? "risk-moderate" : band === "High" ? "risk-high" : "risk-unknown";
+    }
+
+    function renderRiskList(items) {
+      const list = document.getElementById("top-risk-list");
+      list.replaceChildren();
+      const highest = [...items].sort((a, b) => b.score - a.score || b.spend - a.spend).slice(0, 3);
+      if (!highest.length) {
+        const empty = document.createElement("li");
+        empty.className = "empty-state";
+        empty.textContent = "Add suppliers to see priority actions.";
+        list.append(empty);
+        return;
+      }
+      highest.forEach((supplier, index) => {
+        const item = document.createElement("li");
+        item.className = "top-risk-item";
+        const rank = document.createElement("span");
+        rank.className = "rank";
+        rank.textContent = String(index + 1);
+        const text = document.createElement("div");
+        const name = document.createElement("div");
+        name.className = "top-risk-name";
+        name.textContent = supplier.name.trim() || "Unnamed supplier";
+        const rec = document.createElement("div");
+        rec.className = "top-risk-rec";
+        rec.textContent = recommendation(supplier);
+        text.append(name, rec);
+        const score = document.createElement("span");
+        score.className = "top-risk-score";
+        score.textContent = supplier.score + " / 100";
+        item.append(rank, text, score);
+        list.append(item);
+      });
+    }
+
+    function recommendation(supplier) {
+      const actions = {
+        "Spend concentration": "Qualify a second source and rebalance spend below 30%.",
+        "Supplier country": "Assess alternate-country sourcing and logistics routes.",
+        "Limited alternatives": "Develop and pre-qualify additional replacement suppliers.",
+        "Onboarding lead time": "Pre-approve capacity and shorten the replacement onboarding path.",
+        "Single-country dependency": "Build a qualified source in another country."
+      };
+      return (actions[supplier.topFactor] || "Review supplier continuity plans.") + " Primary driver: " + supplier.topFactor + ".";
+    }
+
+    function buildCharts(state) {
+      if (typeof Chart === "undefined") {
+        document.querySelectorAll("canvas").forEach((canvas) => {
+          const notice = document.createElement("p");
+          notice.className = "empty-state";
+          notice.textContent = "Charts could not load. Supplier scores and recommendations are still available.";
+          canvas.replaceWith(notice);
+        });
+        return;
+      }
+      const categoryDatasets = CATEGORIES.map((category) => ({
+        label: category,
+        data: state.items.filter((supplier) => supplier.category === category && Number.isFinite(supplier.spend)).map((supplier) => ({
+          x: supplier.spend,
+          y: supplier.score,
+          r: Math.max(5, Math.min(18, 4 + supplier.leadWeeks * .75)),
+          supplier
+        })),
+        backgroundColor: CATEGORY_COLORS[category] + "bf",
+        borderColor: CATEGORY_COLORS[category],
+        borderWidth: 1.5
+      }));
+      const tooltip = {
+        callbacks: {
+          label(context) {
+            const supplier = context.raw.supplier;
+            return [
+              supplier.name.trim() || "Unnamed supplier",
+              "Spend: " + formatNumber(supplier.spend, 1) + "%",
+              "Risk score: " + supplier.score + " / 100",
+              "Top factor: " + supplier.topFactor
+            ];
+          }
+        }
+      };
+      if (!charts.riskMap) {
+        charts.riskMap = new Chart(document.getElementById("risk-map"), {
+          type: "bubble",
+          data: { datasets: categoryDatasets },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: "bottom", labels: { boxWidth: 8, boxHeight: 8, usePointStyle: true, padding: 11, font: { family: "Inter", size: 9 } } }, tooltip },
+            scales: {
+              x: { title: { display: true, text: "Spend share (%)", font: { family: "Inter", size: 9 } }, min: 0, max: 100, grid: { color: "#edf0f3" }, ticks: { font: { family: "Inter", size: 9 } } },
+              y: { title: { display: true, text: "Risk score", font: { family: "Inter", size: 9 } }, min: 0, max: 100, grid: { color: "#edf0f3" }, ticks: { stepSize: 20, font: { family: "Inter", size: 9 } } }
+            }
+          }
+        });
+      } else {
+        charts.riskMap.data.datasets = categoryDatasets;
+        charts.riskMap.update();
+      }
+
+      const riskValues = ["Low", "Moderate", "High"].map((band) =>
+        state.items.filter((supplier) => riskBand(supplier.score) === band)
+          .reduce((sum, supplier) => sum + (Number.isFinite(supplier.spend) ? supplier.spend : 0), 0));
+      const countryOrder = COUNTRIES.filter((country) => state.items.some((supplier) => supplier.country === country && supplier.spend > 0));
+      const countryValues = countryOrder.map((country) => state.items
+        .filter((supplier) => supplier.country === country)
+        .reduce((sum, supplier) => sum + (Number.isFinite(supplier.spend) ? supplier.spend : 0), 0));
+      charts.riskDonut = updateDonut(charts.riskDonut, "risk-donut", ["Low", "Moderate", "High"], riskValues,
+        ["#21835d", "#d89a2b", "#c43d45"], "risk-legend");
+      charts.countryDonut = updateDonut(charts.countryDonut, "country-donut", countryOrder, countryValues,
+        countryOrder.map((_, index) => COUNTRY_COLORS[index % COUNTRY_COLORS.length]), "country-legend");
+    }
+
+    function updateDonut(chart, canvasId, labels, values, colors, legendId) {
+      if (!chart) {
+        chart = new Chart(document.getElementById(canvasId), {
+          type: "doughnut",
+          data: { labels, datasets: [{ data: values, backgroundColor: colors, borderColor: "#fff", borderWidth: 2 }] },
+          options: {
+            responsive: true, maintainAspectRatio: false, cutout: "68%",
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label(context) { return context.label + ": " + formatNumber(context.raw, 1) + "%"; } } } }
+          }
+        });
+      } else {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = values;
+        chart.data.datasets[0].backgroundColor = colors;
+        chart.update();
+      }
+      renderLegend(legendId, labels, values, colors);
+      return chart;
+    }
+
+    function renderLegend(id, labels, values, colors) {
+      const legend = document.getElementById(id);
+      legend.replaceChildren();
+      if (!labels.length) {
+        const empty = document.createElement("div");
+        empty.className = "legend-row";
+        empty.textContent = "No supplier exposure yet";
+        legend.append(empty);
+        return;
+      }
+      labels.forEach((label, index) => {
+        const row = document.createElement("div");
+        row.className = "legend-row";
+        const name = document.createElement("span");
+        name.className = "legend-name";
+        const dot = document.createElement("i");
+        dot.className = "legend-dot";
+        dot.style.backgroundColor = colors[index];
+        const title = document.createElement("span");
+        title.textContent = label;
+        name.append(dot, title);
+        const value = document.createElement("strong");
+        value.textContent = formatNumber(values[index], 1) + "%";
+        row.append(name, value);
+        legend.append(row);
+      });
+    }
+
+    function renderScenario(state) {
+      const supplier = state.items.find((item) => item.id === scenarioSupplier.value);
+      const revenue = Number(monthlyRevenue.value);
+      const validRevenue = monthlyRevenue.value !== "" && Number.isFinite(revenue) && revenue > 0;
+      const placeholder = document.getElementById("scenario-placeholder");
+      const results = document.getElementById("scenario-results");
+      if (!supplier || !validRevenue) {
+        results.hidden = true;
+        placeholder.hidden = false;
+        placeholder.textContent = !supplier && !validRevenue
+          ? "Choose a supplier and enter monthly revenue to calculate scenario exposure."
+          : !supplier
+            ? "Choose a supplier to calculate scenario exposure."
+            : "Enter a monthly revenue greater than zero to calculate scenario exposure.";
+        return;
+      }
+      placeholder.hidden = true;
+      results.hidden = false;
+      const revenueAtRisk = revenue * supplier.spend / 100 * selectedWeeks / 4;
+      const recoveryCost = supplier.spend / 100 * revenue * selectedWeeks * 1.3;
+      const onboardingGap = Math.max(0, supplier.leadWeeks - selectedWeeks);
+      const lineCount = Number.isFinite(supplier.lines) ? supplier.lines : 0;
+      const severityPoints = supplier.score + (selectedWeeks >= 8 ? 20 : selectedWeeks >= 4 ? 10 : 0) + (onboardingGap >= 4 ? 10 : 0);
+      const severity = severityPoints >= 85 ? "Critical" : severityPoints >= 65 ? "Severe" : severityPoints >= 40 ? "Moderate" : "Low";
+      document.getElementById("revenue-at-risk").textContent = formatCurrency(revenueAtRisk);
+      document.getElementById("lines-affected").textContent = String(lineCount);
+      document.getElementById("recovery-cost").textContent = formatCurrency(recoveryCost);
+      document.getElementById("scenario-score").textContent = supplier.score + " / 100";
+      document.getElementById("onboarding-gap").textContent = onboardingGap + " weeks";
+      const rating = document.getElementById("scenario-rating");
+      rating.textContent = severity;
+      rating.className = "risk-pill " + (severity === "Low" ? "risk-low" : severity === "Moderate" ? "risk-moderate" : "risk-high");
+      rating.title = "Onboarding gap: " + onboardingGap + " weeks";
+      rating.setAttribute("aria-label", severity + " severity; replacement onboarding gap " + onboardingGap + " weeks");
+    }
+
+    function renderDashboard() {
+      document.getElementById("add-supplier").disabled = suppliers.length >= 12;
+      document.getElementById("add-supplier").title = suppliers.length >= 12 ? "Maximum of 12 suppliers reached" : "Add supplier";
+      const state = getPortfolioState();
+      updateSpendValidation(state);
+      renderSummary(state);
+      refreshScenarioOptions(state.items);
+      renderRiskList(state.items);
+      buildCharts(state);
+      renderScenario(state);
+    }
+
+    function renderAll() {
+      supplierList.replaceChildren();
+      suppliers.forEach((supplier) => supplierList.append(makeSupplierRow(supplier)));
+      renderDashboard();
+    }
+
+    function formatNumber(value, digits) {
+      return Number(value).toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    }
+
+    function formatCurrency(value) {
+      return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+    }
+
+    function csvEscape(value) {
+      const rawString = String(value ?? "");
+      const string = /^[\t\r ]*[=+\-@]/.test(rawString) ? "'" + rawString : rawString;
+      return '"' + string.replace(/"/g, '""') + '"';
+    }
+
+    supplierList.addEventListener("input", (event) => {
+      if (event.target.matches("[data-field]")) renderDashboard();
+    });
+    supplierList.addEventListener("change", (event) => {
+      if (event.target.matches("[data-field]")) renderDashboard();
+    });
+    document.getElementById("add-supplier").addEventListener("click", () => {
+      if (suppliers.length >= 12) return;
+      const supplier = {
+        id: createId(),
+        name: "New supplier " + (suppliers.length + 1),
+        category: "Component",
+        spend: 0,
+        country: "Other",
+        alternatives: "0",
+        leadWeeks: "4",
+        lines: 0
+      };
+      suppliers.push(supplier);
+      renderAll();
+      const nameField = supplierList.querySelector('[data-supplier-id="' + supplier.id + '"] [data-field="name"]');
+      if (nameField) nameField.focus();
+    });
+    scenarioSupplier.addEventListener("change", () => renderScenario(getPortfolioState()));
+    monthlyRevenue.addEventListener("input", () => renderScenario(getPortfolioState()));
+    document.querySelectorAll(".duration-tab").forEach((button) => {
+      button.addEventListener("click", () => {
+        selectedWeeks = Number(button.dataset.weeks);
+        document.querySelectorAll(".duration-tab").forEach((tab) =>
+          tab.setAttribute("aria-pressed", String(tab === button)));
+        renderScenario(getPortfolioState());
+      });
+    });
+    document.getElementById("print-button").addEventListener("click", () => window.print());
+    document.getElementById("reset-button").addEventListener("click", () => {
+      suppliers = STARTER_SUPPLIERS.map((supplier) => ({ ...supplier, id: createId() }));
+      scenarioSupplier.value = "";
+      monthlyRevenue.value = "";
+      selectedWeeks = 2;
+      document.querySelectorAll(".duration-tab").forEach((tab) =>
+        tab.setAttribute("aria-pressed", String(tab.dataset.weeks === "2")));
+      renderAll();
+    });
+    document.getElementById("export-button").addEventListener("click", () => {
+      const state = getPortfolioState();
+      const header = ["Supplier", "Category", "Spend (%)", "Country", "Alternatives", "Lead time (weeks)", "Production lines", "Risk score", "Risk band", "Top factor"];
+      const rows = state.items.map((supplier) => [
+        supplier.name, supplier.category, supplier.spend, supplier.country, supplier.alternatives,
+        supplier.leadLabel, supplier.lines, supplier.score, riskBand(supplier.score), supplier.topFactor
+      ].map(csvEscape).join(","));
+      const csv = [header.map(csvEscape).join(","), ...rows].join("\r\n");
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "risklens-supplier-portfolio.csv";
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+
+    renderAll();
+  </script>
+</body>
+</html>
